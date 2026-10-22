@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Just Scroll",
+  "version": "0.2.0",
+  "description": "Dismiss login nag overlays and restore scrolling on public pages.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Just Scroll"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
