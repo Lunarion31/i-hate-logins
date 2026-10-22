@@ -49,7 +49,6 @@
   }
   function isGate(el) {
     if (el === pinPreview || el === document.body || el === document.documentElement || hidden.has(el)) return false;
-    // Geometry is only consulted after the cheap positioning check. Class names aren't required.
     const css = getComputedStyle(el);
     const dialog = el.matches('[role="dialog"], [aria-modal="true"], dialog[open]');
     if (!dialog && !['fixed', 'sticky'].includes(css.position)) return false;
@@ -61,7 +60,6 @@
     if (/\b(checkout|payment|credit card|age verification|date of birth|cookie|consent)\b/i.test(text)) return false;
     const continuation = /\b(continue|keep (?:viewing|reading|scrolling|browsing)|(?:see|view|read) more|unlock|to (?:view|read|browse|see))\b/i.test(text);
     const bothActions = /\b(log\s*in|sign\s*in)\b/i.test(text) && /\b(sign\s*up|create (?:an? |your )?account|join)\b/i.test(text);
-    // Ordinary sticky navigation often contains both links. It isn't a login gate.
     if (!dialog && (el.matches('header, nav, [role="navigation"], [role="banner"]') || el.querySelector('nav, [role="navigation"]'))) return false;
     const prominent = rect.width >= innerWidth * 0.45 && (rect.height >= innerHeight * 0.25 || rect.top >= innerHeight * 0.55);
     return continuation || (bothActions && (dialog || prominent));
@@ -96,22 +94,18 @@
   }
   function clearInteractionLocks(elements) {
     if (![...gates].some(el => el.isConnected)) return;
-    // A second, unrelated modal may legitimately own the backdrop and the locks.
     if ([...document.querySelectorAll('[role="dialog"], [aria-modal="true"], dialog[open]')].some(visible)) return;
     const candidates = [...elements];
     for (const el of candidates) {
       if (!el.isConnected || el === document.body || el === document.documentElement || !visible(el)) continue;
       const css = getComputedStyle(el);
       if (!['fixed', 'absolute'].includes(css.position) || !largeSurface(el)) continue;
-      // Covers both grey scrims and transparent click shields, regardless of their class.
-      // Hidden login descendants don't count as visible content in a portal wrapper.
       if ((el.innerText || '').trim()) continue;
       if ([...el.querySelectorAll('button,a,input,select,textarea,img,video,iframe,canvas,svg,[contenteditable="true"]')].some(visible)) continue;
       if (css.pointerEvents !== 'none' || css.backgroundColor !== 'rgba(0, 0, 0, 0)' || css.backdropFilter !== 'none') hide(el);
     }
     for (const el of candidates) {
       if (!el.isConnected || hidden.has(el) || !visible(el) || !largeSurface(el)) continue;
-      // Restore the page surface, not individual intentionally disabled controls.
       if (!el.matches('html,body,main,[role="main"]') && !el.querySelector('main,[role="main"],article,a,button')) continue;
       removeAttribute(el, 'inert');
       if (el.getAttribute('aria-hidden') === 'true') removeAttribute(el, 'aria-hidden');
@@ -128,7 +122,6 @@
       if (protectedRoute()) { restore(); return; }
       if (Date.now() < intentionalLoginUntil) return;
       let removed = false;
-      // Drop references when frameworks discard a hidden component.
       for (const el of hidden.keys()) if (!el.isConnected) hidden.delete(el);
       for (const el of gates) if (!el.isConnected) gates.delete(el);
       const changed = [...elements];
@@ -145,8 +138,6 @@
     } finally { observe(); }
   }
   function scanAll() { scan(document.querySelectorAll('*')); }
-  // Mutation observers run at the microtask checkpoint, usually before the next paint.
-  // Inspect changed subtrees and their ancestors, rather than rescanning the page on every mutation.
   const observer = new MutationObserver(records => {
     const elements = new Set();
     const roots = new Set();
@@ -157,7 +148,6 @@
       for (const node of record.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) roots.add(node);
     }
     for (const root of roots) {
-      // html/body class changes can affect existing descendants and need a complete pass.
       let ancestor = root.parentElement;
       while (ancestor && !roots.has(ancestor)) ancestor = ancestor.parentElement;
       if (ancestor) continue;
@@ -175,8 +165,6 @@
     observer.disconnect();
     if (enabled) scanAll(); else restore();
   }
-  // Pinterest's signed-out feed renders gated buttons instead of ordinary pin links.
-  // Work only with destinations/media exposed by the clicked card, never guessed pin IDs.
   function pinterestHost(hostname) {
     return /(^|\.)pinterest\.(com|co\.uk|ca|de|fr|es|it|com\.au|co\.kr|jp|pt|ch|at|cl|com\.mx)$/.test(hostname);
   }
@@ -240,13 +228,11 @@
     const card = target?.closest('[data-test-id="gated-pin-rep"]');
     if (!card) return;
     const control = target.closest('a,button,[role="button"],input,textarea,select,[contenteditable="true"]');
-    // Nested save/share controls must keep their normal meaning.
     const primary = card.querySelector('[role="button"],button,a');
     const destination = pinDestination(card);
     if (control && control !== primary && !(control instanceof HTMLAnchorElement && destination && control.href === destination)) return;
     const media = destination ? null : pinImage(card);
     if (!destination && !media) return;
-    // Preserve modified image-only clicks rather than unexpectedly opening a modal.
     if (!destination && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
     if (event.altKey) return;
     event.preventDefault(); event.stopImmediatePropagation();
@@ -257,7 +243,6 @@
   }
   window.addEventListener('click', handlePinterestPin, true);
   window.addEventListener('keydown', handlePinterestPin, true);
-  // Keep deliberately opened login forms usable, even on sites with modal-only login.
   document.addEventListener('click', event => {
     const target = event.target instanceof Element && event.target.closest('a, button, [role="button"]');
     if (event.isTrusted && target && auth.test((target.innerText || '').trim()) && (target.innerText || '').length < 100) {
@@ -266,7 +251,6 @@
   }, true);
   document.addEventListener('DOMContentLoaded', scanAll, { once: true });
   window.addEventListener('load', scanAll, { once: true });
-  // Late stylesheets may turn ordinary markup into positioned overlays.
   document.addEventListener('load', event => { if (event.target instanceof HTMLLinkElement) scanAll(); }, true);
   window.addEventListener('popstate', scanAll);
   chrome.storage.onChanged.addListener((changes, area) => {
