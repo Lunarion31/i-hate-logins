@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Pricing Peek",
+  "version": "0.1.0",
+  "description": "A quiet heads-up when a website links to a pricing page.",
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
